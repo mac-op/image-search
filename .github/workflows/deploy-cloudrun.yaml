@@ -44,22 +44,20 @@ jobs:
       run: |
         gcloud auth configure-docker
 
-    - name: Build base Docker image
+    - name: Build and Push Base Image
       run: |
-        docker build -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/base:latest -f docker/base.dockerfile .
+        docker build -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/inference-service/base:latest -f base/Dockerfile .
+        docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/inference-service/base:latest
 
-    - name: Build inference Docker image
+    - name: Build and Push Inference Image
       run: |
-        docker build -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
-          --build-arg PROJECT_ID=${{ env.PROJECT_ID }} \
-          -f docker/inference.dockerfile .
-        docker tag ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:latest
-
-    - name: Push images to Google Container Registry
-      run: |
-        docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/base:latest
-        docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
-        docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:latest
+        docker build \
+          --build-arg PROJECT_ID=${{ secrets.GCP_PROJECT_ID }} \
+          -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/inference-service/inference:${{ github.sha }} \
+          -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/inference-service/inference:latest \
+          -f inference/Dockerfile .
+        docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/inference-service/inference:${{ github.sha }}
+        docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/inference-service/inference:latest
 
     - name: Deploy to Cloud Run
       run: |
