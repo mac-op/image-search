@@ -23,8 +23,8 @@ class BlipWrapper(torch.nn.Module):
 
     def forward(
             self,
-            input_ids: torch.LongTensor,
             pixel_values: torch.FloatTensor,
+            input_ids: torch.LongTensor,
             attention_mask: Optional[torch.LongTensor] = None,
         ) -> Tuple[torch.Tensor, torch.Tensor]:
         vision_outputs = self.model.vision_model(

@@ -94,7 +94,7 @@ def get_compiled_siglip_text(path: Optional[str|Path]=None, force_compile: bool=
 
 def export_tokenizer(path: Optional[str|Path]=None):
     if path is None:
-        path = DEFAULT_COMPILED_PATH_TEXT
+        path = DEFAULT_TOKENIZER_PATH
     global SigLipTokenizer
     if SigLipTokenizer is None:
         SigLipTokenizer = get_tokenizer(MODEL_NAME)
