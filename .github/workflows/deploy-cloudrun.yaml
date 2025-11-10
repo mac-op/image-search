@@ -15,7 +15,7 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   SERVICE_NAME: image-search-inference
   REGION: us-central1
-  REGISTRY: gcr.io
+  REGISTRY: us-central1-docker.pkg.dev
 
 jobs:
   deploy:
@@ -40,29 +40,29 @@ jobs:
       with:
         project_id: ${{ env.PROJECT_ID }}
 
-    - name: Configure Docker to use gcloud as a credential helper
+    - name: Configure Docker to use Artifact Registry
       run: |
-        gcloud auth configure-docker
+        gcloud auth configure-docker us-central1-docker.pkg.dev
 
     - name: Build and Push Base Image
       run: |
-        docker build -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/inference-service/base:latest -f base/Dockerfile .
-        docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/inference-service/base:latest
+        docker build -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/inference-service/base:latest -f docker/base.dockerfile .
+        docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/inference-service/base:latest
 
     - name: Build and Push Inference Image
       run: |
         docker build \
-          --build-arg PROJECT_ID=${{ secrets.GCP_PROJECT_ID }} \
-          -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/inference-service/inference:${{ github.sha }} \
-          -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/inference-service/inference:latest \
-          -f inference/Dockerfile .
-        docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/inference-service/inference:${{ github.sha }}
-        docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/inference-service/inference:latest
+          --build-arg PROJECT_ID=${{ env.PROJECT_ID }} \
+          -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/inference-service/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+          -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/inference-service/${{ env.SERVICE_NAME }}:latest \
+          -f docker/inference.dockerfile .
+        docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/inference-service/${{ env.SERVICE_NAME }}:${{ github.sha }}
+        docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/inference-service/${{ env.SERVICE_NAME }}:latest
 
     - name: Deploy to Cloud Run
       run: |
         gcloud run deploy ${{ env.SERVICE_NAME }} \
-          --image=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+          --image=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/inference-service/${{ env.SERVICE_NAME }}:${{ github.sha }} \
           --region=${{ env.REGION }} \
           --platform=managed \
           --allow-unauthenticated \
