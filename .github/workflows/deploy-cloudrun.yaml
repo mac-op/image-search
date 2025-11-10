@@ -67,14 +67,14 @@ jobs:
           --platform=managed \
           --allow-unauthenticated \
           --port=8000 \
-          --memory=8Gi \
+          --memory=16Gi \
           --cpu=4 \
           --gpu=1 \
           --gpu-type=nvidia-l4 \
-          --max-instances=10 \
+          --max-instances=3 \
           --min-instances=0 \
           --timeout=3600 \
-          --concurrency=1000 \
+          --concurrency=100 \
           --set-env-vars="PINECONE_API_KEY=${{ secrets.PINECONE_API_KEY }}" \
           --set-env-vars="PINECONE_INDEX_NAME=${{ secrets.PINECONE_INDEX_NAME }}" \
           --set-env-vars="REDIS_URL=${{ secrets.REDIS_URL }}" \
