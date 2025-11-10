@@ -1,21 +1,23 @@
-import os
 import hashlib
+import os
 import pickle
 from contextlib import asynccontextmanager
 
+import redis.asyncio as redis
 import torch
 import torch.nn.functional as F
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.params import Depends
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
 from pinecone.grpc import PineconeGRPC as Pinecone
-import redis.asyncio as redis
 from redis.asyncio import Redis
 
 from cloud_storage import get_storage_client
 from models import ModelConfig
+from misc.prepare_env import write_to_mount
 
+write_to_mount()
 pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
 index = pc.Index(os.environ.get("PINECONE_INDEX_NAME", "im-search"))
 model_config = ModelConfig.for_inference()
@@ -78,11 +80,12 @@ async def cache_images(images_dict: dict[str, bytes], ttl: int = 3600):
 async def im_search(data: dict):
     query = data.get("query", "")
 
-    # Check cache for query results
-    query_hash = hashlib.sha256(query.encode()).hexdigest()
-    cache_key = f"search:{query_hash}"
-
+    cache_key = ""
     if redis_client:
+        # Check cache for query results
+        query_hash = hashlib.sha256(query.encode()).hexdigest()
+        cache_key = f"search:{query_hash}"
+
         cached_result = await redis_client.get(cache_key)
         if cached_result:
             return {"results": pickle.loads(cached_result), "cached": True}

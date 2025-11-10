@@ -11,8 +11,19 @@ import torch_tensorrt
 assert torch.cuda.is_available()
 
 MODEL_NAME = "Salesforce/blip-itm-large-coco"
-DEFAULT_COMPILED_PATH = "blip_trt.pt2"
-DEFAULT_PREPROCESSOR_PATH = "./"
+DEFAULT_BLIP_MOD = "data/blip_trt.pt2"
+DEFAULT_BLIP_PREPROCESSOR_PATH = "data/"
+
+def set_default_paths(v: str, tk: str):
+    global DEFAULT_BLIP_MOD, DEFAULT_BLIP_PREPROCESSOR_PATH
+    DEFAULT_BLIP_MOD = v
+    DEFAULT_BLIP_PREPROCESSOR_PATH = tk
+
+def prepend_default_blip_paths(prefix: str):
+    prefix = prefix.rstrip("/")
+    global DEFAULT_BLIP_MOD, DEFAULT_BLIP_PREPROCESSOR_PATH
+    DEFAULT_BLIP_MOD = prefix + "/" + DEFAULT_BLIP_MOD
+    DEFAULT_BLIP_PREPROCESSOR_PATH = prefix + "/" + DEFAULT_BLIP_PREPROCESSOR_PATH
 
 class BlipWrapper(torch.nn.Module):
     def __init__(self):
@@ -88,25 +99,31 @@ def _compile_blip() -> GraphModule:
 
 def export_blip(path: Optional[Union[str, Path]]=None, overwrite: bool=False):
     if path is None:
-        path = DEFAULT_COMPILED_PATH
+        path = DEFAULT_BLIP_MOD
+    if Path(path).exists() and not overwrite:
+        print(f"BLIP model already exists at {path}. Skipping export.", file=sys.stderr)
+        return
     torch_tensorrt.save(_compile_blip(), path)
 
 def get_compiled_blip(path: Optional[Union[str, Path]]=None, force_compile: bool = False) -> GraphModule:
     if path is None and not force_compile:
-        path = DEFAULT_COMPILED_PATH
+        path = DEFAULT_BLIP_MOD
     if not Path(path).exists():
         return _compile_blip()
     return torch_tensorrt.load(path).module()
 
-def save_blip_preprocessor(path: Optional[Union[str, Path]]=None):
+def save_blip_preprocessor(path: Optional[Union[str, Path]]=None, overwrite: bool=False):
     if path is None:
-        path = DEFAULT_PREPROCESSOR_PATH
+        path = DEFAULT_BLIP_PREPROCESSOR_PATH
+    if Path(path).exists() and not overwrite:
+        print(f"Preprocessor already exists at {path}. Skipping export.", file=sys.stderr)
+        return
     processor = BlipProcessor.from_pretrained(MODEL_NAME, use_fast=True)
     processor.save_pretrained(save_directory=path)
 
 def load_blip_preprocessor(path: Optional[Union[str, Path]]=None) -> BlipProcessor:
     if path is None:
-        path = DEFAULT_PREPROCESSOR_PATH
+        path = DEFAULT_BLIP_PREPROCESSOR_PATH
     elif not Path(path).exists():
         print(f"Preprocessor not found at {path}. Downloading from HuggingFace...", file=sys.stderr)
         return BlipProcessor.from_pretrained(MODEL_NAME, use_fast=True)

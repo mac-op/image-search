@@ -15,9 +15,22 @@ MODEL_NAME = 'hf-hub:timm/ViT-B-16-SigLIP2-512'
 _model: Optional[CustomTextCLIP] = None
 SigLipTokenizer: Optional[HFTokenizer] = None
 
-DEFAULT_COMPILED_PATH_VIS = "siglip_vis_trt.pt2"
-DEFAULT_COMPILED_PATH_TEXT = "siglip_text_trt.pt2"
-DEFAULT_TOKENIZER_PATH = "."
+DEFAULT_SIGLIP_VIS_MOD = "data/siglip_vis_trt.pt2"
+DEFAULT_SIGLIP_TEXT_MOD = "data/siglip_text_trt.pt2"
+DEFAULT_SIGLIP_TOKENIZER_PATH = "data/"
+
+def set_default_paths(v: str, t: str, tk: str):
+    global DEFAULT_SIGLIP_VIS_MOD, DEFAULT_SIGLIP_TEXT_MOD, DEFAULT_SIGLIP_TOKENIZER_PATH
+    DEFAULT_SIGLIP_VIS_MOD = v
+    DEFAULT_SIGLIP_TEXT_MOD = t
+    DEFAULT_SIGLIP_TOKENIZER_PATH = tk
+
+def prepend_default_siglip_paths(prefix: str):
+    prefix = prefix.rstrip("/")
+    global DEFAULT_SIGLIP_VIS_MOD, DEFAULT_SIGLIP_TEXT_MOD, DEFAULT_SIGLIP_TOKENIZER_PATH
+    DEFAULT_SIGLIP_VIS_MOD = prefix + "/" + DEFAULT_SIGLIP_VIS_MOD
+    DEFAULT_SIGLIP_TEXT_MOD = prefix + "/" + DEFAULT_SIGLIP_TEXT_MOD
+    DEFAULT_SIGLIP_TOKENIZER_PATH = prefix + "/" + DEFAULT_SIGLIP_TOKENIZER_PATH
 
 assert torch.cuda.is_available()
 
@@ -47,13 +60,16 @@ def _compile_siglip_vision() -> GraphModule:
 
 def export_siglip_vision(path: Optional[str|Path]=None, overwrite: bool=False):
     if path is None:
-        path = DEFAULT_COMPILED_PATH_VIS
+        path = DEFAULT_SIGLIP_VIS_MOD
+    if Path(path).exists() and not overwrite:
+        print(f"Vision model already exists at {path}. Skipping export.", file=sys.stderr)
+        return
     torch_tensorrt.save(_compile_siglip_vision(), path)
 
 def get_compiled_siglip_vision(path: Optional[str|Path]=None, force_compile: bool=False) -> GraphModule:
     if path is None:
         if not force_compile:
-            path = DEFAULT_COMPILED_PATH_VIS
+            path = DEFAULT_SIGLIP_VIS_MOD
         else:
             return _compile_siglip_vision()
     if not Path(path).exists():
@@ -78,13 +94,16 @@ def _compile_siglip_text() -> GraphModule:
 
 def export_siglip_text(path: Optional[str|Path]=None, overwrite: bool=False):
     if path is None:
-        path = DEFAULT_COMPILED_PATH_TEXT
+        path = DEFAULT_SIGLIP_TEXT_MOD
+    if Path(path).exists() and not overwrite:
+        print(f"Text model already exists at {path}. Skipping export.", file=sys.stderr)
+        return
     torch_tensorrt.save(_compile_siglip_text(), path)
 
 def get_compiled_siglip_text(path: Optional[str|Path]=None, force_compile: bool=False) -> GraphModule:
     if path is None:
         if not force_compile:
-            path = DEFAULT_COMPILED_PATH_TEXT
+            path = DEFAULT_SIGLIP_TEXT_MOD
         else:
             return _compile_siglip_text()
     if not Path(path).exists():
@@ -92,9 +111,12 @@ def get_compiled_siglip_text(path: Optional[str|Path]=None, force_compile: bool=
         return _compile_siglip_text()
     return torch_tensorrt.load(path).module()
 
-def export_tokenizer(path: Optional[str|Path]=None):
+def export_tokenizer(path: Optional[str|Path]=None, overwrite: bool=False):
     if path is None:
-        path = DEFAULT_TOKENIZER_PATH
+        path = DEFAULT_SIGLIP_TOKENIZER_PATH
+    if Path(path).exists() and not overwrite:
+        print(f"Tokenizer already exists at {path}. Skipping export.", file=sys.stderr)
+        return
     global SigLipTokenizer
     if SigLipTokenizer is None:
         SigLipTokenizer = get_tokenizer(MODEL_NAME)
@@ -102,7 +124,7 @@ def export_tokenizer(path: Optional[str|Path]=None):
 
 def get_siglip_tokenizer(path: Optional[str|Path]=None) -> HFTokenizer:
     if path is None:
-        path = DEFAULT_TOKENIZER_PATH
+        path = DEFAULT_SIGLIP_TOKENIZER_PATH
     if not Path(path).exists():
         print(f"Tokenizer not found at {path}. Downloading from HuggingFace...", file=sys.stderr)
         return get_tokenizer(MODEL_NAME)
