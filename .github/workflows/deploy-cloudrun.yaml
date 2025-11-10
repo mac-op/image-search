@@ -71,10 +71,10 @@ jobs:
           --cpu=4 \
           --gpu=1 \
           --gpu-type=nvidia-l4 \
-          --max-instances=3 \
+          --max-instances=1 \
           --min-instances=0 \
           --timeout=3600 \
-          --concurrency=100 \
+          --concurrency=50 \
           --set-env-vars="PINECONE_API_KEY=${{ secrets.PINECONE_API_KEY }}" \
           --set-env-vars="PINECONE_INDEX_NAME=${{ secrets.PINECONE_INDEX_NAME }}" \
           --set-env-vars="REDIS_URL=${{ secrets.REDIS_URL }}" \
