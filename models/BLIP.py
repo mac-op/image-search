@@ -1,23 +1,24 @@
-from typing import Optional, Tuple
+import sys
+from pathlib import Path
+from typing import Optional, Tuple, Union
 
 import torch
+from torch.fx import GraphModule
 from torch.nn import functional as F
 from transformers import BlipProcessor, BlipForImageTextRetrieval
 import torch_tensorrt
 
-__all__ = ['BlipProcessorInstance', "get_compiled_blip"]
+assert torch.cuda.is_available()
 
 MODEL_NAME = "Salesforce/blip-itm-large-coco"
-BlipProcessorInstance: BlipProcessor = BlipProcessor.from_pretrained(MODEL_NAME, use_fast=True)
-_model: BlipForImageTextRetrieval = BlipForImageTextRetrieval.from_pretrained(MODEL_NAME)
-
-assert torch.cuda.is_available()
-_model = _model.cuda().eval()
-_compiled_model = None
+DEFAULT_COMPILED_PATH = "blip_trt.pt2"
+DEFAULT_PREPROCESSOR_PATH = "./"
 
 class BlipWrapper(torch.nn.Module):
     def __init__(self):
         super().__init__()
+        _model: BlipForImageTextRetrieval = BlipForImageTextRetrieval.from_pretrained(MODEL_NAME)
+        _model = _model.cuda().eval()
         self.model = _model
 
     def forward(
@@ -56,33 +57,57 @@ class BlipWrapper(torch.nn.Module):
 
         return itm_score, cosine_similarity
 
-def get_compiled_blip():
-    global _compiled_model
-    if _compiled_model is None:
-        wrapped_model = BlipWrapper().cuda().eval()
-        _compiled_model =  torch_tensorrt.compile(
-            wrapped_model,
-            inputs=[
-                torch_tensorrt.Input(
-                    min_shape=(1, 3, 384, 384),
-                    opt_shape=(16, 3, 384, 384),
-                    max_shape=(64, 3, 384, 384),
-                    dtype=torch.float16
-                ),
-                torch_tensorrt.Input(
-                    min_shape=(1, 64),
-                    opt_shape=(16, 64),
-                    max_shape=(64, 64),
-                    dtype=torch.long
-                ),
-                torch_tensorrt.Input(
-                    min_shape=(1, 64),
-                    opt_shape=(16, 64),
-                    max_shape=(64, 64),
-                    dtype=torch.long
-                )
-            ],
-            enabled_precisions = {torch.float16},
-            optimization_level = 5
-        )
+def _compile_blip() -> GraphModule:
+    wrapped_model = BlipWrapper().cuda().eval()
+    _compiled_model =  torch_tensorrt.compile(
+        wrapped_model,
+        inputs=[
+            torch_tensorrt.Input(
+                min_shape=(1, 3, 384, 384),
+                opt_shape=(32, 3, 384, 384),
+                max_shape=(64, 3, 384, 384),
+                dtype=torch.float16
+            ),
+            torch_tensorrt.Input(
+                min_shape=(1, 64),
+                opt_shape=(32, 64),
+                max_shape=(64, 64),
+                dtype=torch.long
+            ),
+            torch_tensorrt.Input(
+                min_shape=(1, 64),
+                opt_shape=(32, 64),
+                max_shape=(64, 64),
+                dtype=torch.long
+            )
+        ],
+        enabled_precisions = {torch.float16},
+        optimization_level = 5
+    )
     return _compiled_model
+
+def export_blip(path: Optional[Union[str, Path]]=None, overwrite: bool=False):
+    if path is None:
+        path = DEFAULT_COMPILED_PATH
+    torch_tensorrt.save(_compile_blip(), path)
+
+def get_compiled_blip(path: Optional[Union[str, Path]]=None, force_compile: bool = False) -> GraphModule:
+    if path is None and not force_compile:
+        path = DEFAULT_COMPILED_PATH
+    if not Path(path).exists():
+        return _compile_blip()
+    return torch_tensorrt.load(path).module()
+
+def save_blip_preprocessor(path: Optional[Union[str, Path]]=None):
+    if path is None:
+        path = DEFAULT_PREPROCESSOR_PATH
+    processor = BlipProcessor.from_pretrained(MODEL_NAME, use_fast=True)
+    processor.save_pretrained(save_directory=path)
+
+def load_blip_preprocessor(path: Optional[Union[str, Path]]=None) -> BlipProcessor:
+    if path is None:
+        path = DEFAULT_PREPROCESSOR_PATH
+    elif not Path(path).exists():
+        print(f"Preprocessor not found at {path}. Downloading from HuggingFace...", file=sys.stderr)
+        return BlipProcessor.from_pretrained(MODEL_NAME, use_fast=True)
+    return BlipProcessor.from_pretrained(path)

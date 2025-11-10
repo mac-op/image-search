@@ -22,7 +22,7 @@ def search(query: dict):
     import numpy as np
     from pinecone.grpc import PineconeGRPC as Pinecone
     from models.SigLIP import get_compiled_siglip_text, SigLipTokenizer
-    from models.BLIP import get_compiled_blip, BlipProcessorInstance
+    from models.BLIP import compile_blip, BlipProcessorInstance
     from PIL import Image
     import io
     import base64
@@ -76,7 +76,7 @@ def search(query: dict):
         return {"results": candidate_ids}
 
     # 4. Rerank using BLIP model
-    blip_model = get_compiled_blip()
+    blip_model = compile_blip()
 
     # Process images and text in batches
     batch_size = 16
