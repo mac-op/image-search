@@ -1,0 +1,62 @@
+services:
+  base:
+    build:
+      context: .
+      dockerfile: docker/base.dockerfile
+    image: base:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+
+  inference:
+    build:
+      context: .
+      dockerfile: docker/inference.dockerfile
+    image: inference:latest
+    depends_on:
+      - base
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+
+  function:
+    build:
+      context: .
+      dockerfile: docker/function.dockerfile
+    image: function:latest
+    depends_on:
+      - base
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+
+  dev:
+    build:
+      context: .
+      dockerfile: docker/dev.dockerfile
+    image: dev:latest
+    depends_on:
+      - base
+    volumes:
+      - .:/workspace
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]

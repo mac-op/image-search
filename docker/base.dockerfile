@@ -23,9 +23,3 @@ RUN uv pip install --upgrade pip setuptools wheel \
     && uv pip install torch==2.9.0 torchvision --index-url https://download.pytorch.org/whl/cu130 \
     && uv pip install torch-tensorrt tensorrt transformers pillow open-clip-torch\
     && uv pip install -r pyproject.toml
-
-CMD ["/bin/bash"]
-#RUN python3 scripts/prepare_env.py
-#EXPOSE 8000
-#
-#CMD ["uv", "run", "uvicorn", "service.app:app", "--host", "0.0.0.0", "--port", "8000"]
