@@ -18,9 +18,85 @@ env:
   REGISTRY: us-central1-docker.pkg.dev
 
 jobs:
+  check-base-image:
+    name: Check if base image needs rebuild
+    runs-on: ubuntu-latest
+    outputs:
+      base-changed: ${{ steps.check.outputs.base-changed }}
+      base-hash: ${{ steps.hash.outputs.base-hash }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+
+    - name: Calculate base image hash
+      id: hash
+      run: |
+        BASE_HASH=$(sha256sum docker/base.dockerfile pyproject.toml | sha256sum | cut -d' ' -f1)
+        echo "base-hash=$BASE_HASH" >> $GITHUB_OUTPUT
+        echo "Base hash: $BASE_HASH"
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    - name: Check if base image exists
+      id: check
+      run: |
+        BASE_TAG="base-${{ steps.hash.outputs.base-hash }}"
+        if gcloud artifacts docker images list ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/inference-service --include-tags --filter="tags:$BASE_TAG" --format="value(tags)" | grep -q "$BASE_TAG"; then
+          echo "base-changed=false" >> $GITHUB_OUTPUT
+          echo "Base image exists with hash $BASE_TAG"
+        else
+          echo "base-changed=true" >> $GITHUB_OUTPUT
+          echo "Base image needs to be built with hash $BASE_TAG"
+        fi
+
+  build-base:
+    name: Build base image
+    runs-on: ubuntu-latest
+    needs: check-base-image
+    if: needs.check-base-image.outputs.base-changed == 'true'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    - name: Configure Docker to use Artifact Registry
+      run: |
+        gcloud auth configure-docker us-central1-docker.pkg.dev
+
+    - name: Build and Push Base Image
+      run: |
+        BASE_TAG="base-${{ needs.check-base-image.outputs.base-hash }}"
+        docker build -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/inference-service/base:latest -f docker/base.dockerfile .
+        docker tag ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/inference-service/base:latest ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/inference-service/base:$BASE_TAG
+        docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/inference-service/base:latest
+        docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/inference-service/base:$BASE_TAG
+
   deploy:
     name: Deploy to Cloud Run
     runs-on: ubuntu-latest
+    needs: [check-base-image, build-base]
+    if: always() && !cancelled()
 
     permissions:
       contents: read
@@ -44,11 +120,6 @@ jobs:
       run: |
         gcloud auth configure-docker us-central1-docker.pkg.dev
 
-    - name: Build and Push Base Image
-      run: |
-        docker build -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/inference-service/base:latest -f docker/base.dockerfile .
-        docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/inference-service/base:latest
-
     - name: Build and Push Inference Image
       run: |
         docker build \
@@ -67,7 +138,7 @@ jobs:
           --platform=managed \
           --allow-unauthenticated \
           --port=8000 \
-          --memory=16Gi \
+          --memory=12Gi \
           --cpu=4 \
           --gpu=1 \
           --gpu-type=nvidia-l4 \
