@@ -22,4 +22,4 @@ ENV PATH="/workspace/.venv/bin/:$PATH"
 RUN uv pip install --upgrade pip setuptools wheel \
     && uv pip install torch==2.9.0 torchvision --index-url https://download.pytorch.org/whl/cu130 \
     && uv pip install torch-tensorrt tensorrt transformers pillow open-clip-torch\
-    && uv pip install -r pyproject.toml
+    && uv pip install -r pyproject.toml && uv clean
