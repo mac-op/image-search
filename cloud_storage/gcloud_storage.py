@@ -1,19 +1,18 @@
+import os
 from typing import Any
 import asyncio
 
 from google.cloud.storage import Blob
 
-import storage_interface
+from .storage_interface import CloudStorageInterface
 from google.cloud import storage
 
-class GCloudStorage(storage_interface.CloudStorageInterface):
-    BUCKET_NAME = "image-search"
+class GCloudStorage(CloudStorageInterface):
+    BUCKET_NAME = os.environ.get("BUCKET_NAME")
 
     def __init__(self):
         self.client = storage.Client()
         self.bucket = self.client.bucket(self.BUCKET_NAME)
-        if not self.bucket.exists():
-            self.bucket.create()
 
     def upload(self, file_path, file_name):
         Blob(self.bucket, file_name).upload_from_filename(file_name)
