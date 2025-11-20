@@ -88,12 +88,12 @@ async def im_search(data: dict):
 
         cached_result = await redis_client.get(cache_key)
         if cached_result:
-            return {"results": pickle.loads(cached_result), "cached": True}
+            return {"results": pickle.loads(cached_result)}
 
     tokens = model_config.siglip_tokenizer([query]).cuda()
 
     with torch.no_grad():
-        text_embedding = model_config.siglip_text(tokens)
+        text_embedding = model_config.siglip_text_model(tokens)
         text_embedding = F.normalize(text_embedding, dim=-1)
         text_embedding = text_embedding.cpu().numpy()[0]
 
@@ -102,6 +102,9 @@ async def im_search(data: dict):
         top_k=32,
         include_metadata=True
     )
+
+    if not results.matches:
+        return {"results": []}
 
     keys = [match.id for match in results.matches]
 
@@ -126,7 +129,7 @@ async def im_search(data: dict):
     if redis_client:
         await redis_client.setex(cache_key, 300, pickle.dumps(result))
 
-    return {"results": result, "cached": False}
+    return {"results": result}
 
 @app.get("/health")
 async def health_check():
