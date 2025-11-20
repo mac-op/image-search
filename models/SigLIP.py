@@ -17,7 +17,7 @@ SigLipTokenizer: Optional[HFTokenizer] = None
 
 DEFAULT_SIGLIP_VIS_MOD = "data/siglip_vis_trt.pt2"
 DEFAULT_SIGLIP_TEXT_MOD = "data/siglip_text_trt.pt2"
-DEFAULT_SIGLIP_TOKENIZER_PATH = "data/"
+DEFAULT_SIGLIP_TOKENIZER_PATH = "data/siglip_tokenizer/"
 
 def set_default_paths(v: str, t: str, tk: str):
     global DEFAULT_SIGLIP_VIS_MOD, DEFAULT_SIGLIP_TEXT_MOD, DEFAULT_SIGLIP_TOKENIZER_PATH
@@ -44,7 +44,7 @@ def _get_siglip():
     _model.cuda().eval()
     return _model
 
-def _compile_siglip_vision() -> GraphModule:
+def _compile_siglip_vis_cuda() -> GraphModule:
     return torch_tensorrt.compile(
         _get_siglip().visual.cuda().eval(),
         inputs=[
@@ -64,17 +64,17 @@ def export_siglip_vision(path: Optional[str|Path]=None, overwrite: bool=False):
     if Path(path).exists() and not overwrite:
         print(f"Vision model already exists at {path}. Skipping export.", file=sys.stderr)
         return
-    torch_tensorrt.save(_compile_siglip_vision(), path)
+    torch_tensorrt.save(_compile_siglip_vis_cuda(), path)
 
 def get_compiled_siglip_vision(path: Optional[str|Path]=None, force_compile: bool=False) -> GraphModule:
     if path is None:
         if not force_compile:
             path = DEFAULT_SIGLIP_VIS_MOD
         else:
-            return _compile_siglip_vision()
+            return _compile_siglip_vis_cuda()
     if not Path(path).exists():
         print(f"Vision model not found at {path}. Downloading from HuggingFace...", file=sys.stderr)
-        return _compile_siglip_vision()
+        return _compile_siglip_vis_cuda()
     return torch_tensorrt.load(path).module()
 
 def _compile_siglip_text() -> GraphModule:
@@ -105,10 +105,12 @@ def get_compiled_siglip_text(path: Optional[str|Path]=None, force_compile: bool=
         if not force_compile:
             path = DEFAULT_SIGLIP_TEXT_MOD
         else:
+            print(f"Compiling SigLip text model...")
             return _compile_siglip_text()
     if not Path(path).exists():
         print(f"Text model not found at {path}. Downloading from HuggingFace...", file=sys.stderr)
         return _compile_siglip_text()
+    print(f"Loading SigLip text model from {path}")
     return torch_tensorrt.load(path).module()
 
 def export_tokenizer(path: Optional[str|Path]=None, overwrite: bool=False):
@@ -128,7 +130,10 @@ def get_siglip_tokenizer(path: Optional[str|Path]=None) -> HFTokenizer:
     if not Path(path).exists():
         print(f"Tokenizer not found at {path}. Downloading from HuggingFace...", file=sys.stderr)
         return get_tokenizer(MODEL_NAME)
-    return get_tokenizer(path)
+    # print(f"Loading SigLip tokenizer from {path}")
+    # return get_tokenizer(path)
+    # Open CLIP does not export the config for some reason
+    return get_tokenizer(MODEL_NAME)
 
 def get_siglip_preprocessor() -> Compose:
     return Compose([

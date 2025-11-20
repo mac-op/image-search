@@ -14,7 +14,7 @@ from models.BLIP import (
 )
 
 def write_to_mount():
-    if os.environ.get("USE_GCP"):
+    if not os.environ.get("DEV"):
         prepend_default_siglip_paths("/mnt")
         prepend_default_blip_paths("/mnt")
     export_siglip_text()

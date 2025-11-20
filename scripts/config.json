@@ -1,0 +1,9 @@
+{
+  "subreddits": {
+    "memes": 1000,
+    "dankmemes": 1000,
+    "me_irl": 800,
+    "meirl": 800
+  },
+  "period": "day"
+}
