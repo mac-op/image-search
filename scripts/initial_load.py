@@ -297,7 +297,8 @@ class HTTPImageScraper:
 
         async with self.download_semaphore:
             async with session.get(post['image_url'], timeout=aiohttp.ClientTimeout(total=100)) as response:
-                response.raise_for_status()
+                if response.status == 403 or response.status == 404:
+                    return None
                 response.auto_decompress = False
                 buffer = io.BytesIO(await response.read())
                 img = Image.open(buffer)
