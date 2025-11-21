@@ -12,12 +12,13 @@ assert torch.cuda.is_available()
 
 MODEL_NAME = "Salesforce/blip-itm-large-coco"
 DEFAULT_BLIP_MOD = "data/blip_trt.pt2"
-DEFAULT_BLIP_PREPROCESSOR_PATH = "data/"
+DEFAULT_BLIP_PREPROCESSOR_PATH = "data/blip_preprocessor/"
 
-def set_default_paths(v: str, tk: str):
+
+def set_default_paths(mod: str, pr: str):
     global DEFAULT_BLIP_MOD, DEFAULT_BLIP_PREPROCESSOR_PATH
-    DEFAULT_BLIP_MOD = v
-    DEFAULT_BLIP_PREPROCESSOR_PATH = tk
+    DEFAULT_BLIP_MOD = mod
+    DEFAULT_BLIP_PREPROCESSOR_PATH = pr
 
 def prepend_default_blip_paths(prefix: str):
     prefix = prefix.rstrip("/")
@@ -66,9 +67,9 @@ class BlipWrapper(torch.nn.Module):
         text_feat = F.normalize(self.model.text_proj(q_embeds[:, 0, :]), dim=-1)
         cosine_similarity = image_feat @ text_feat.t()
 
-        return itm_score, cosine_similarity
+        return itm_score.softmax(dim=1)[:, 1], cosine_similarity.diag()
 
-def _compile_blip() -> GraphModule:
+def _compile_blip_cuda() -> GraphModule:
     wrapped_model = BlipWrapper().cuda().eval()
     _compiled_model =  torch_tensorrt.compile(
         wrapped_model,
@@ -80,15 +81,15 @@ def _compile_blip() -> GraphModule:
                 dtype=torch.float16
             ),
             torch_tensorrt.Input(
-                min_shape=(1, 64),
-                opt_shape=(32, 64),
-                max_shape=(64, 64),
+                min_shape=(64, 2),
+                opt_shape=(64, 64),
+                max_shape=(64, 128),
                 dtype=torch.long
             ),
             torch_tensorrt.Input(
-                min_shape=(1, 64),
-                opt_shape=(32, 64),
-                max_shape=(64, 64),
+                min_shape=(64, 2),
+                opt_shape=(64, 64),
+                max_shape=(64, 128),
                 dtype=torch.long
             )
         ],
@@ -103,13 +104,15 @@ def export_blip(path: Optional[Union[str, Path]]=None, overwrite: bool=False):
     if Path(path).exists() and not overwrite:
         print(f"BLIP model already exists at {path}. Skipping export.", file=sys.stderr)
         return
-    torch_tensorrt.save(_compile_blip(), path)
+    torch_tensorrt.save(_compile_blip_cuda(), path)
 
 def get_compiled_blip(path: Optional[Union[str, Path]]=None, force_compile: bool = False) -> GraphModule:
     if path is None and not force_compile:
         path = DEFAULT_BLIP_MOD
     if not Path(path).exists():
-        return _compile_blip()
+        print(f"BLIP model not found at {path}. Compiling...")
+        return _compile_blip_cuda()
+    print(f"Loading BLIP model from {path or DEFAULT_BLIP_MOD}")
     return torch_tensorrt.load(path).module()
 
 def save_blip_preprocessor(path: Optional[Union[str, Path]]=None, overwrite: bool=False):
@@ -127,4 +130,4 @@ def load_blip_preprocessor(path: Optional[Union[str, Path]]=None) -> BlipProcess
     elif not Path(path).exists():
         print(f"Preprocessor not found at {path}. Downloading from HuggingFace...", file=sys.stderr)
         return BlipProcessor.from_pretrained(MODEL_NAME, use_fast=True)
-    return BlipProcessor.from_pretrained(path)
+    return BlipProcessor.from_pretrained(path, use_fast=True)

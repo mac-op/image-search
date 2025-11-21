@@ -6,8 +6,8 @@ from torch.fx import GraphModule
 from torchvision.transforms import Compose
 from transformers import BlipProcessor
 
-from models.BLIP import get_compiled_blip, load_blip_preprocessor
-from models.SigLIP import get_compiled_siglip_text, get_compiled_siglip_vision, get_siglip_preprocessor, \
+from model_config.BLIP import get_compiled_blip, load_blip_preprocessor
+from model_config.SigLIP import get_compiled_siglip_text, get_compiled_siglip_vision, get_siglip_preprocessor, \
     get_siglip_tokenizer
 
 

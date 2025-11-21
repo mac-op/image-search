@@ -14,7 +14,7 @@ from pinecone.grpc import PineconeGRPC as Pinecone
 from redis.asyncio import Redis
 
 from cloud_storage import get_storage_client
-from models import ModelConfig
+from model_config import ModelConfig
 from misc.prepare_env import write_to_mount
 
 write_to_mount()

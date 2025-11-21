@@ -362,7 +362,7 @@ def ml_processor_worker(
 
     try:
         import torch
-        from models import get_siglip_preprocessor, get_compiled_siglip_vision, load_blip_preprocessor
+        from model_config import get_siglip_preprocessor, get_compiled_siglip_vision, load_blip_preprocessor
         from PIL import Image
         from torchvision.transforms.functional import pil_to_tensor, to_pil_image
         import numpy as np
@@ -475,7 +475,7 @@ def ml_processor_worker(
 async def main():
     NUM_WORKERS = 1
 
-    config = json.load(open(os.path.join(os.path.dirname(__file__), "config.json")))
+    config = json.load(open(os.path.join(os.path.dirname(__file__), "scrape_config.json")))
     subreddits = config["subreddits"]
     period = config["period"]
 

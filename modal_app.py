@@ -48,7 +48,7 @@ class ImageSearchService:
         import json
         import redis.asyncio as redis
         from pinecone.grpc import PineconeGRPC as Pinecone
-        from models import ModelConfig
+        from model_config import ModelConfig
         from cloud_storage import get_storage_client
         from misc.prepare_env import write_to_mount
 

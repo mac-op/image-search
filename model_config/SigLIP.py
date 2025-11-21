@@ -40,7 +40,7 @@ _compiled_text_model = None
 def _get_siglip():
     global _model
     if _model is None:
-        _model, SigLipPreprocessor = create_model_from_pretrained(MODEL_NAME)
+        _model, _ = create_model_from_pretrained(MODEL_NAME)
     _model.cuda().eval()
     return _model
 
@@ -125,6 +125,8 @@ def export_tokenizer(path: Optional[str|Path]=None, overwrite: bool=False):
     SigLipTokenizer.save_pretrained(dest=path)
 
 def get_siglip_tokenizer(path: Optional[str|Path]=None) -> HFTokenizer:
+    if SigLipTokenizer is not None:
+        return SigLipTokenizer
     if path is None:
         path = DEFAULT_SIGLIP_TOKENIZER_PATH
     if not Path(path).exists():
